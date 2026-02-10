@@ -3,85 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>香港交通即時報</title>
+    <title>香港交通助手</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50 text-slate-900">
+<body class="bg-slate-50 text-slate-900">
     <div class="max-w-md mx-auto p-5 min-h-screen">
         <header class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-black italic tracking-tighter">HK TRAFFIC</h1>
-            <button onclick="location.reload()" class="bg-blue-600 text-white text-xs px-4 py-2 rounded-lg font-bold">手動刷新</button>
+            <button onclick="location.reload()" class="bg-blue-600 text-white text-xs px-4 py-2 rounded-lg font-bold">刷新</button>
         </header>
 
         <div class="grid grid-cols-3 gap-3 mb-6">
-            <div id="H1" class="bg-white p-4 rounded-2xl shadow-sm border-b-4 border-gray-200 text-center">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border-b-4 border-gray-200 text-center">
                 <p class="text-[10px] text-gray-400 font-bold mb-1">紅隧</p>
                 <p class="text-2xl font-black" id="t-H1">--</p>
-                <p class="text-[10px] text-gray-400">分鐘</p>
             </div>
-            <div id="H2" class="bg-white p-4 rounded-2xl shadow-sm border-b-4 border-gray-200 text-center">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border-b-4 border-gray-200 text-center">
                 <p class="text-[10px] text-gray-400 font-bold mb-1">東隧</p>
                 <p class="text-2xl font-black" id="t-H2">--</p>
-                <p class="text-[10px] text-gray-400">分鐘</p>
             </div>
-            <div id="H3" class="bg-white p-4 rounded-2xl shadow-sm border-b-4 border-gray-200 text-center">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border-b-4 border-gray-200 text-center">
                 <p class="text-[10px] text-gray-400 font-bold mb-1">西隧</p>
                 <p class="text-2xl font-black" id="t-H3">--</p>
-                <p class="text-[10px] text-gray-400">分鐘</p>
             </div>
         </div>
 
-        <h2 class="text-sm font-bold text-gray-400 mb-3 uppercase tracking-widest">即時路況消息</h2>
-        <div id="news-box" class="space-y-3">
-            <div class="text-center py-10 text-gray-400 text-sm animate-pulse">正在連接政府伺服器...</div>
+        <h2 class="text-sm font-bold text-gray-400 mb-3 uppercase tracking-widest text-center">--- 即時路況 ---</h2>
+        <div id="news-box" class="space-y-3 text-center text-gray-400 italic py-10">
+            數據載入中...
         </div>
     </div>
 
     <script>
-        async function getData() {
-            const newsBox = document.getElementById('news-box');
-            
-            // 使用另一個 Proxy 嘗試
-            const proxy = "https://api.allorigins.win/get?url=";
-            const timeUrl = encodeURIComponent("https://td-api.data.gov.hk/tis/v1/ntis/journey-time/all");
-            const newsUrl = encodeURIComponent("https://td-api.data.gov.hk/tis/v1/ntis/traffic-news/all");
+        // 這是另一個更強大的中轉站，專門處理這類問題
+        const PROXY = "https://cors-anywhere.herokuapp.com/"; 
+        const TIME_API = "https://td-api.data.gov.hk/tis/v1/ntis/journey-time/all";
+        const NEWS_API = "https://td-api.data.gov.hk/tis/v1/ntis/traffic-news/all";
 
+        async function getData() {
+            // 如果連中轉站都失效，我們用另一個後備
+            const backupProxy = "https://api.allorigins.win/get?url=";
+            
             try {
-                // 1. 抓取時間
-                const resTime = await fetch(`${proxy}${timeUrl}`);
-                const dataTimeObj = await resTime.json();
-                const dataTime = JSON.parse(dataTimeObj.contents);
+                const response = await fetch(`${backupProxy}${encodeURIComponent(NEWS_API)}`);
+                const json = await response.json();
+                const data = JSON.parse(json.contents);
                 
-                const tunnelMap = { 'H1': 't-H1', 'H2': 't-H2', 'H3': 't-H3' };
-                dataTime.forEach(item => {
-                    if(tunnelMap[item.journeyId]) {
-                        document.getElementById(tunnelMap[item.journeyId]).innerText = item.journeyTime;
-                    }
+                const newsBox = document.getElementById('news-box');
+                newsBox.innerHTML = '';
+                newsBox.className = 'space-y-3 text-left';
+
+                data.slice(0, 10).forEach(msg => {
+                    const div = document.createElement('div');
+                    div.className = "bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500";
+                    div.innerHTML = `<p class="text-[10px] text-blue-500 font-bold mb-1">${msg.msgTime}</p><p class="text-sm font-medium">${msg.msgText}</p>`;
+                    newsBox.appendChild(div);
                 });
 
-                // 2. 抓取消息
-                const resNews = await fetch(`${proxy}${newsUrl}`);
-                const dataNewsObj = await resNews.json();
-                const dataNews = JSON.parse(dataNewsObj.contents);
+                // 同理獲取隧道時間
+                const resTime = await fetch(`${backupProxy}${encodeURIComponent(TIME_API)}`);
+                const jsonTime = await resTime.json();
+                const dataTime = JSON.parse(jsonTime.contents);
                 
-                newsBox.innerHTML = '';
-                if(dataNews.length === 0) {
-                    newsBox.innerHTML = '<div class="bg-white p-4 rounded-xl text-gray-400 text-sm">交通暢順</div>';
-                } else {
-                    dataNews.slice(0, 10).forEach(msg => {
-                        const div = document.createElement('div');
-                        div.className = "bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500";
-                        div.innerHTML = `<p class="text-[10px] text-blue-500 font-bold mb-1">${msg.msgTime}</p><p class="text-sm">${msg.msgText}</p>`;
-                        newsBox.appendChild(div);
-                    });
-                }
+                dataTime.forEach(item => {
+                    const el = document.getElementById('t-' + item.journeyId);
+                    if(el) el.innerText = item.journeyTime;
+                });
+
             } catch (err) {
-                newsBox.innerHTML = `<div class="text-red-400 text-sm">暫時無法獲取數據，請稍後再試。</div>`;
-                console.error(err);
+                document.getElementById('news-box').innerText = "數據抓取暫時受阻，請點擊上方刷新按鈕再試。";
             }
         }
+
         getData();
-        setInterval(getData, 600000); // 10分鐘刷一次
     </script>
 </body>
 </html>
