@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>香港即時交通助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .tunnel-card { transition: all 0.3s ease; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans">
+    <div class="max-w-md mx-auto p-4">
+        <header class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-blue-700">🚗 交通助手</h1>
+                <p class="text-xs text-gray-500">最後更新: <span id="update-time">--:--</span></p>
+            </div>
+            <button onclick="fetchAllData()" class="bg-blue-500 text-white px-3 py-1 rounded-full text-sm">手動刷新</button>
+        </header>
+
+        <h2 class="font-bold mb-3 text-gray-700 uppercase text-sm tracking-widest">三隧過海時間 (往港島)</h2>
+        <div class="grid grid-cols-3 gap-3 mb-6">
+            <div id="cross-harbour" class="tunnel-card bg-white p-3 rounded-xl shadow-sm border-t-4 border-gray-300 text-center">
+                <div class="text-xs text-gray-500 mb-1">紅隧</div>
+                <div class="text-xl font-bold" id="cht-time">--</div>
+                <div class="text-[10px] text-gray-400">分鐘</div>
+            </div>
+            <div id="eastern" class="tunnel-card bg-white p-3 rounded-xl shadow-sm border-t-4 border-gray-300 text-center">
+                <div class="text-xs text-gray-500 mb-1">東隧</div>
+                <div class="text-xl font-bold" id="eht-time">--</div>
+                <div class="text-[10px] text-gray-400">分鐘</div>
+            </div>
+            <div id="western" class="tunnel-card bg-white p-3 rounded-xl shadow-sm border-t-4 border-gray-300 text-center">
+                <div class="text-xs text-gray-500 mb-1">西隧</div>
+                <div class="text-xl font-bold" id="wht-time">--</div>
+                <div class="text-[10px] text-gray-400">分鐘</div>
+            </div>
+        </div>
+
+        <section class="bg-white rounded-2xl shadow-sm p-4 mb-4">
+            <h2 class="font-bold border-b pb-2 mb-3 flex items-center">
+                <span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span> 即時交通消息
+            </h2>
+            <div id="traffic-news" class="space-y-4 text-sm leading-relaxed">
+                正在獲取最新數據...
+            </div>
+        </section>
+
+        <section class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+            <h2 class="font-bold text-blue-800 text-sm">💡 溫馨提示</h2>
+            <ul class="list-disc list-inside text-xs mt-2 text-blue-700 space-y-1">
+                <li>三隧分流新收費：注意不同時段收費不同。</li>
+                <li>雨天路滑，請與前車保持兩倍距離。</li>
+                <li>最新消息每 30 分鐘自動更新。</li>
+            </ul>
+        </section>
+    </div>
+
+    <script>
+        async function fetchAllData() {
+            const timeContainer = document.getElementById('update-time');
+            timeContainer.innerText = new Date().toLocaleTimeString();
+            
+            // 1. 抓取交通消息
+            fetchTrafficNews();
+            // 2. 抓取三隧時間
+            fetchTunnelTimes();
+        }
+
+        async function fetchTrafficNews() {
+            try {
+                const response = await fetch('https://td-api.data.gov.hk/tis/v1/ntis/traffic-news/all');
+                const data = await response.json();
+                const newsContainer = document.getElementById('traffic-news');
+                newsContainer.innerHTML = '';
+
+                if (!data || data.length === 0) {
+                    newsContainer.innerHTML = '<p class="text-gray-400 text-center py-4">暫無重大交通事故</p>';
+                    return;
+                }
+
+                data.slice(0, 5).forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'border-b border-gray-50 pb-2 last:border-0';
+                    div.innerHTML = `<p class="text-[10px] font-bold text-blue-500 mb-1">${item.msgTime}</p><p class="text-gray-700">${item.msgText}</p>`;
+                    newsContainer.appendChild(div);
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        async function fetchTunnelTimes() {
+            try {
+                // 政府行車時間 API (以九龍往港島方向為例)
+                const response = await fetch('https://td-api.data.gov.hk/tis/v1/ntis/journey-time/all');
+                const data = await response.json();
+                
+                // 簡化逻辑：尋找三隧往港島的關鍵字
+                const mapping = {
+                    'CHT': { id: 'cht-time', parent: 'cross-harbour', keywords: ['Cross Harbour Tunnel', 'Kowloon Entrance'] },
+                    'EHT': { id: 'eht-time', parent: 'eastern', keywords: ['Eastern Harbour Crossing', 'Kowloon Entrance'] },
+                    'WHT': { id: 'wht-time', parent: 'western', keywords: ['Western Harbour Crossing', 'Kowloon Entrance'] }
+                };
+
+                data.forEach(item => {
+                    let time = item.journeyTime;
+                    let target = null;
+                    if(item.journeyId === 'H1') target = 'CHT'; // 紅隧
+                    if(item.journeyId === 'H2') target = 'EHT'; // 東隧
+                    if(item.journeyId === 'H3') target = 'WHT'; // 西隧
+
+                    if(target) {
+                        const config = mapping[target];
+                        const el = document.getElementById(config.id);
+                        const parent = document.getElementById(config.parent);
+                        el.innerText = time;
+                        
+                        // 顏色邏輯 (簡單數值判斷)
+                        parent.classList.remove('border-gray-300', 'border-green-500', 'border-yellow-500', 'border-red-500');
+                        if(time <= 15) parent.classList.add('border-green-500');
+                        else if(time <= 30) parent.classList.add('border-yellow-500');
+                        else parent.classList.add('border-red-500');
+                    }
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        // 初始化
+        fetchAllData();
+        // 每 30 分鐘執行一次
+        setInterval(fetchAllData, 1800000);
+    </script>
+</body>
+</html>
