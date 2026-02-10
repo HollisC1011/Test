@@ -58,60 +58,64 @@
         </footer>
     </div>
 
-    <script>
+   <script>
         async function fetchAllData() {
+            // 更新顯示時間
             document.getElementById('update-time').innerText = new Date().toLocaleTimeString();
+            
+            // 抓取數據
             fetchTunnelTimes();
             fetchTrafficNews();
         }
 
         async function fetchTunnelTimes() {
             try {
-                const res = await fetch('https://td-api.data.gov.hk/tis/v1/ntis/journey-time/all');
-                const data = await res.json();
+                // 使用 allorigins 代理來繞過政府 API 的跨域限制 (CORS)
+                const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://td-api.data.gov.hk/tis/v1/ntis/journey-time/all')}`);
+                const json = await res.json();
+                const data = JSON.parse(json.contents);
                 
-                const tunnels = {
-                    'H1': 'card-H1', // 紅隧
-                    'H2': 'card-H2', // 東隧
-                    'H3': 'card-H3'  // 西隧
-                };
+                const tunnels = { 'H1': 'card-H1', 'H2': 'card-H2', 'H3': 'card-H3' };
 
                 data.forEach(item => {
                     if (tunnels[item.journeyId]) {
                         const time = item.journeyTime;
-                        const cardId = tunnels[item.journeyId];
                         const timeEl = document.getElementById(`time-${item.journeyId}`);
-                        const cardEl = document.getElementById(cardId);
+                        const cardEl = document.getElementById(tunnels[item.journeyId]);
                         
-                        timeEl.innerText = time;
+                        if (timeEl) timeEl.innerText = time;
                         
-                        // 顏色邏輯
-                        cardEl.classList.remove('border-gray-200', 'border-green-500', 'border-yellow-500', 'border-red-500');
-                        if (time <= 15) cardEl.classList.add('border-green-500');
-                        else if (time <= 25) cardEl.classList.add('border-yellow-500');
-                        else cardEl.classList.add('border-red-500');
+                        // 顏色邏輯：15分內綠，25分內黃，超過紅
+                        if (cardEl) {
+                            cardEl.classList.remove('border-gray-200', 'border-green-500', 'border-yellow-500', 'border-red-500');
+                            if (time <= 15) cardEl.classList.add('border-green-500');
+                            else if (time <= 25) cardEl.classList.add('border-yellow-500');
+                            else cardEl.classList.add('border-red-500');
+                        }
                     }
                 });
-            } catch (e) {
-                console.error("隧道數據抓取失敗");
+            } catch (e) { 
+                console.error("隧道數據抓取失敗", e); 
             }
         }
 
         async function fetchTrafficNews() {
             const container = document.getElementById('news-container');
             try {
-                const res = await fetch('https://td-api.data.gov.hk/tis/v1/ntis/traffic-news/all');
-                const data = await res.json();
+                const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://td-api.data.gov.hk/tis/v1/ntis/traffic-news/all')}`);
+                const json = await res.json();
+                const data = JSON.parse(json.contents);
                 
                 container.innerHTML = '';
-                if (data.length === 0) {
-                    container.innerHTML = '<div class="text-center py-10 text-gray-400 text-sm">目前交通暢順，無重大事故。</div>';
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="text-center py-10 text-gray-400 text-sm">目前交通暢順。</div>';
                     return;
                 }
 
+                // 只顯示最近 8 條消息
                 data.slice(0, 8).forEach(news => {
                     const item = document.createElement('div');
-                    item.className = 'bg-white p-4 rounded-2xl shadow-sm border-l-4 border-slate-900';
+                    item.className = 'bg-white p-4 rounded-2xl shadow-sm border-l-4 border-slate-900 mb-3';
                     item.innerHTML = `
                         <p class="text-[10px] font-mono text-blue-600 mb-1">${news.msgTime}</p>
                         <p class="text-sm leading-relaxed text-slate-700">${news.msgText}</p>
@@ -123,9 +127,9 @@
             }
         }
 
-        // 啟動
+        // 第一次啟動
         fetchAllData();
-        // 每 30 分鐘自動刷新 (1800000 毫秒)
+        // 每 30 分鐘自動刷新
         setInterval(fetchAllData, 1800000);
     </script>
 </body>
