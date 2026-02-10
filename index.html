@@ -3,78 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HK Traffic Live</title>
+    <title>香港交通即時通</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        iframe { border-radius: 20px; overflow: hidden; border: none; }
+    </style>
 </head>
-<body class="bg-slate-50 text-slate-900">
-    <div class="max-w-md mx-auto p-6 min-h-screen">
-        <header class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-black italic tracking-tighter">HK TRAFFIC</h1>
-            <button onclick="location.reload()" class="bg-indigo-600 text-white text-xs px-5 py-2.5 rounded-full font-bold shadow-lg">手動刷新</button>
+<body class="bg-slate-50 text-slate-900 antialiased font-sans">
+    <div class="max-w-md mx-auto p-5 min-h-screen">
+        <header class="mb-6 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-black italic tracking-tighter">HK TRAFFIC</h1>
+                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Official Live Data</p>
+            </div>
+            <button onclick="location.reload()" class="bg-indigo-600 text-white p-2 rounded-full shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            </button>
         </header>
 
-        <div class="grid grid-cols-3 gap-3 mb-8">
-            <div class="bg-white p-4 rounded-3xl shadow-sm border-b-4 border-gray-100 text-center">
-                <p class="text-[10px] text-gray-400 font-bold mb-1">紅隧</p>
-                <p class="text-2xl font-black text-indigo-600" id="t-H1">--</p>
-            </div>
-            <div class="bg-white p-4 rounded-3xl shadow-sm border-b-4 border-gray-100 text-center">
-                <p class="text-[10px] text-gray-400 font-bold mb-1">東隧</p>
-                <p class="text-2xl font-black text-indigo-600" id="t-H2">--</p>
-            </div>
-            <div class="bg-white p-4 rounded-3xl shadow-sm border-b-4 border-gray-100 text-center">
-                <p class="text-[10px] text-gray-400 font-bold mb-1">西隧</p>
-                <p class="text-2xl font-black text-indigo-600" id="t-H3">--</p>
+        <div class="mb-6">
+            <h2 class="text-xs font-black text-slate-400 mb-3 px-1 uppercase tracking-widest">過海隧道行車時間</h2>
+            <div class="bg-white rounded-3xl shadow-sm overflow-hidden p-2">
+                <iframe src="https://www.hkast.org/api/traffic_widget.php" width="100%" height="160"></iframe>
             </div>
         </div>
 
-        <h2 class="text-xs font-black text-gray-400 mb-4 uppercase tracking-[0.2em]">Latest Traffic News</h2>
-        <div id="news-box" class="space-y-4">
-            <div class="text-center py-20 text-gray-300 italic">正在透過備用通道獲取數據...</div>
+        <div>
+            <h2 class="text-xs font-black text-slate-400 mb-3 px-1 uppercase tracking-widest">最新路況消息</h2>
+            <div class="bg-white rounded-3xl shadow-sm h-[400px] overflow-hidden">
+                <iframe src="https://www.td.gov.hk/tc/special_news/spnews.htm" width="100%" height="100%"></iframe>
+            </div>
         </div>
+
+        <footer class="mt-8 text-center">
+            <p class="text-[10px] text-slate-400 font-medium italic">數據直接連結至運輸署官方源</p>
+        </footer>
     </div>
-
-    <script>
-        // 這次我們換一個完全不同的中轉站：YQL/Google API 風格
-        async function fetchData() {
-            const newsBox = document.getElementById('news-box');
-            // 改用這個 Proxy，它通常更穩定
-            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=';
-            
-            try {
-                // 1. 抓取新聞
-                const newsRes = await fetch(proxyUrl + encodeURIComponent('https://td-api.data.gov.hk/tis/v1/ntis/traffic-news/all'));
-                const newsData = await newsRes.json();
-                
-                newsBox.innerHTML = '';
-                if(newsData && newsData.length > 0) {
-                    newsData.slice(0, 8).forEach(msg => {
-                        const item = document.createElement('div');
-                        item.className = "bg-white p-5 rounded-3xl shadow-sm border-l-4 border-indigo-500";
-                        item.innerHTML = `<p class="text-[10px] text-indigo-500 font-black mb-1">${msg.msgTime}</p><p class="text-sm font-bold leading-relaxed">${msg.msgText}</p>`;
-                        newsBox.appendChild(item);
-                    });
-                }
-
-                // 2. 抓取隧道
-                const timeRes = await fetch(proxyUrl + encodeURIComponent('https://td-api.data.gov.hk/tis/v1/ntis/journey-time/all'));
-                const timeData = await timeRes.json();
-                timeData.forEach(i => {
-                    const el = document.getElementById('t-' + i.journeyId);
-                    if(el) el.innerText = i.journeyTime;
-                });
-
-            } catch (e) {
-                // 如果連這個都失敗，最後一招：顯示官方 H5 頁面，保證你有資料看
-                newsBox.innerHTML = `
-                    <div class="bg-white p-6 rounded-3xl text-center">
-                        <p class="text-red-500 font-bold mb-4">即時抓取受阻</p>
-                        <a href="https://www.td.gov.hk/tc/special_news/spnews.htm" target="_blank" class="block bg-indigo-600 text-white p-3 rounded-xl font-bold">按此查看運輸署官方消息</a>
-                        <p class="text-[10px] text-gray-400 mt-4 underline" onclick="location.reload()">重新整理</p>
-                    </div>`;
-            }
-        }
-        fetchData();
-    </script>
 </body>
 </html>
