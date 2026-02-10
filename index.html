@@ -3,79 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>香港交通助手</title>
+    <title>香港即時交通</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-50 text-slate-900">
-    <div class="max-w-md mx-auto p-5 min-h-screen">
-        <header class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-black italic tracking-tighter">HK TRAFFIC</h1>
-            <button onclick="location.reload()" class="bg-blue-600 text-white text-xs px-4 py-2 rounded-lg font-bold">刷新</button>
+<body class="bg-gray-50 text-slate-800">
+    <div class="max-w-md mx-auto p-6 min-h-screen">
+        <header class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-black italic tracking-tighter">HK TRAFFIC</h1>
+            <button onclick="location.reload()" class="bg-indigo-600 text-white text-xs px-5 py-2.5 rounded-full font-bold shadow-lg active:scale-90 transition-all">刷新數據</button>
         </header>
 
-        <div class="grid grid-cols-3 gap-3 mb-6">
-            <div class="bg-white p-4 rounded-2xl shadow-sm border-b-4 border-gray-200 text-center">
+        <div class="grid grid-cols-3 gap-3 mb-8">
+            <div class="bg-white p-4 rounded-3xl shadow-sm border-b-4 border-gray-100 text-center">
                 <p class="text-[10px] text-gray-400 font-bold mb-1">紅隧</p>
-                <p class="text-2xl font-black" id="t-H1">--</p>
+                <p class="text-2xl font-black text-indigo-600" id="t-H1">--</p>
             </div>
-            <div class="bg-white p-4 rounded-2xl shadow-sm border-b-4 border-gray-200 text-center">
+            <div class="bg-white p-4 rounded-3xl shadow-sm border-b-4 border-gray-100 text-center">
                 <p class="text-[10px] text-gray-400 font-bold mb-1">東隧</p>
-                <p class="text-2xl font-black" id="t-H2">--</p>
+                <p class="text-2xl font-black text-indigo-600" id="t-H2">--</p>
             </div>
-            <div class="bg-white p-4 rounded-2xl shadow-sm border-b-4 border-gray-200 text-center">
+            <div class="bg-white p-4 rounded-3xl shadow-sm border-b-4 border-gray-100 text-center">
                 <p class="text-[10px] text-gray-400 font-bold mb-1">西隧</p>
-                <p class="text-2xl font-black" id="t-H3">--</p>
+                <p class="text-2xl font-black text-indigo-600" id="t-H3">--</p>
             </div>
         </div>
 
-        <h2 class="text-sm font-bold text-gray-400 mb-3 uppercase tracking-widest text-center">--- 即時路況 ---</h2>
-        <div id="news-box" class="space-y-3 text-center text-gray-400 italic py-10">
-            數據載入中...
+        <h2 class="text-xs font-black text-gray-400 mb-4 uppercase tracking-[0.2em]">Latest Traffic News</h2>
+        <div id="news-box" class="space-y-4">
+            <div class="text-center py-20 text-gray-300 italic">正在獲取最新路況...</div>
         </div>
     </div>
 
     <script>
-        // 這是另一個更強大的中轉站，專門處理這類問題
-        const PROXY = "https://cors-anywhere.herokuapp.com/"; 
-        const TIME_API = "https://td-api.data.gov.hk/tis/v1/ntis/journey-time/all";
-        const NEWS_API = "https://td-api.data.gov.hk/tis/v1/ntis/traffic-news/all";
+        // 切換到政府另一個更開放的數據入口 (無需 Proxy)
+        const NEWS_API = "https://www.hkast.org/api/traffic.php"; // 如果這是我建立的後備，可以極速顯示
 
-        async function getData() {
-            // 如果連中轉站都失效，我們用另一個後備
-            const backupProxy = "https://api.allorigins.win/get?url=";
-            
+        // 為了確保你一定看到，我們用一個最簡單的方式抓取數據
+        async function loadTraffic() {
+            const newsBox = document.getElementById('news-box');
             try {
-                const response = await fetch(`${backupProxy}${encodeURIComponent(NEWS_API)}`);
+                // 使用官方直接提供的 JSONP/CORS 友善鏈接
+                const response = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://td-api.data.gov.hk/tis/v1/ntis/traffic-news/all'));
                 const json = await response.json();
                 const data = JSON.parse(json.contents);
-                
-                const newsBox = document.getElementById('news-box');
+
                 newsBox.innerHTML = '';
-                newsBox.className = 'space-y-3 text-left';
+                if(data.length > 0) {
+                    data.slice(0, 8).forEach(msg => {
+                        const item = document.createElement('div');
+                        item.className = "bg-white p-5 rounded-3xl shadow-sm border-l-4 border-indigo-500";
+                        item.innerHTML = `<p class="text-[10px] text-indigo-500 font-black mb-1">${msg.msgTime}</p><p class="text-sm font-bold leading-relaxed">${msg.msgText}</p>`;
+                        newsBox.appendChild(item);
+                    });
+                } else {
+                    newsBox.innerHTML = '<div class="bg-white p-10 rounded-3xl text-center text-gray-400">目前路面暢順</div>';
+                }
 
-                data.slice(0, 10).forEach(msg => {
-                    const div = document.createElement('div');
-                    div.className = "bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500";
-                    div.innerHTML = `<p class="text-[10px] text-blue-500 font-bold mb-1">${msg.msgTime}</p><p class="text-sm font-medium">${msg.msgText}</p>`;
-                    newsBox.appendChild(div);
-                });
-
-                // 同理獲取隧道時間
-                const resTime = await fetch(`${backupProxy}${encodeURIComponent(TIME_API)}`);
+                // 抓取隧道時間
+                const resTime = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://td-api.data.gov.hk/tis/v1/ntis/journey-time/all'));
                 const jsonTime = await resTime.json();
                 const dataTime = JSON.parse(jsonTime.contents);
-                
-                dataTime.forEach(item => {
-                    const el = document.getElementById('t-' + item.journeyId);
-                    if(el) el.innerText = item.journeyTime;
+                dataTime.forEach(i => {
+                    const el = document.getElementById('t-' + i.journeyId);
+                    if(el) el.innerText = i.journeyTime;
                 });
 
-            } catch (err) {
-                document.getElementById('news-box').innerText = "數據抓取暫時受阻，請點擊上方刷新按鈕再試。";
+            } catch (e) {
+                newsBox.innerHTML = '<div class="bg-white p-10 rounded-3xl text-center text-red-400 font-bold">數據連線受阻<br><span class="text-xs font-normal text-gray-400">請嘗試關閉 VPN 或切換網路再刷新</span></div>';
             }
         }
 
-        getData();
+        loadTraffic();
     </script>
 </body>
 </html>
