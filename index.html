@@ -3,43 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>香港交通即時通</title>
+    <title>香港交通助手</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        iframe { border-radius: 20px; overflow: hidden; border: none; }
-    </style>
 </head>
-<body class="bg-slate-50 text-slate-900 antialiased font-sans">
-    <div class="max-w-md mx-auto p-5 min-h-screen">
-        <header class="mb-6 flex justify-between items-center">
+<body class="bg-slate-50 text-slate-900 font-sans">
+    <div class="max-w-md mx-auto p-6 min-h-screen">
+        <header class="flex justify-between items-center mb-8">
             <div>
                 <h1 class="text-3xl font-black italic tracking-tighter">HK TRAFFIC</h1>
-                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Official Live Data</p>
+                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Live Updates</p>
             </div>
-            <button onclick="location.reload()" class="bg-indigo-600 text-white p-2 rounded-full shadow-lg">
+            <button onclick="location.reload()" class="bg-indigo-600 text-white p-3 rounded-full shadow-lg active:scale-90 transition-transform">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
             </button>
         </header>
 
-        <div class="mb-6">
-            <h2 class="text-xs font-black text-slate-400 mb-3 px-1 uppercase tracking-widest">過海隧道行車時間</h2>
-            <div class="bg-white rounded-3xl shadow-sm overflow-hidden p-2">
-                <iframe src="https://www.hkast.org/api/traffic_widget.php" width="100%" height="160"></iframe>
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <a href="https://td-api.data.gov.hk/tis/v1/ntis/journey-time/all" target="_blank" class="bg-white p-5 rounded-3xl shadow-sm border-b-4 border-indigo-100 text-center active:bg-indigo-50 transition-colors">
+                <p class="text-2xl mb-1">🕒</p>
+                <p class="text-xs font-bold">過海時間 (原始數據)</p>
+            </a>
+            <a href="https://www.td.gov.hk/tc/special_news/spnews.htm" target="_blank" class="bg-white p-5 rounded-3xl shadow-sm border-b-4 border-red-100 text-center active:bg-red-50 transition-colors">
+                <p class="text-2xl mb-1">📢</p>
+                <p class="text-xs font-bold">最新路況 (官方網頁)</p>
+            </a>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-sm p-6 mb-8 border border-slate-100">
+            <h2 class="text-xs font-black text-slate-400 mb-4 uppercase tracking-widest text-center">今日駕駛提醒</h2>
+            <div id="status-display" class="space-y-4">
+                <p class="text-sm text-slate-600 leading-relaxed text-center italic">
+                    由於瀏覽器安全限制，若下方數據未能載入，請點擊上方按鈕直接查看官方源。
+                </p>
+                <hr class="border-slate-50">
+                <ul class="text-xs text-slate-500 space-y-3">
+                    <li class="flex items-start"><span class="text-indigo-500 mr-2">●</span> 出發前請檢查最新封路消息。</li>
+                    <li class="flex items-start"><span class="text-indigo-500 mr-2">●</span> 三隧分流收費已實施，請留意時段。</li>
+                    <li class="flex items-start"><span class="text-indigo-500 mr-2">●</span> 駕駛時請勿使用手提電話。</li>
+                </ul>
             </div>
         </div>
 
-        <div>
-            <h2 class="text-xs font-black text-slate-400 mb-3 px-1 uppercase tracking-widest">最新路況消息</h2>
-            <div class="bg-white rounded-3xl shadow-sm h-[400px] overflow-hidden">
-                <iframe src="https://www.td.gov.hk/tc/special_news/spnews.htm" width="100%" height="100%"></iframe>
-            </div>
+        <div class="text-center">
+            <p class="text-[10px] text-slate-300">數據源：香港運輸署資料一線通</p>
         </div>
-
-        <footer class="mt-8 text-center">
-            <p class="text-[10px] text-slate-400 font-medium italic">數據直接連結至運輸署官方源</p>
-        </footer>
     </div>
+
+    <script>
+        // 嘗試在背景抓取一次，如果失敗也不會顯示錯誤圖示
+        async function silentFetch() {
+            try {
+                const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://td-api.data.gov.hk/tis/v1/ntis/traffic-news/all'));
+                const json = await res.json();
+                const data = JSON.parse(json.contents);
+                if(data.length > 0) {
+                    const statusEl = document.getElementById('status-display');
+                    statusEl.innerHTML = `<h3 class="text-xs font-bold text-red-500 mb-2 underline text-center">最新突發消息</h3>`;
+                    data.slice(0, 3).forEach(m => {
+                        statusEl.innerHTML += `<p class="text-xs font-medium border-b border-slate-50 pb-2 mb-2 leading-tight">${m.msgText}</p>`;
+                    });
+                }
+            } catch (e) {
+                // 靜默失敗，不干擾介面
+            }
+        }
+        silentFetch();
+    </script>
 </body>
 </html>
