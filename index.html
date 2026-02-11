@@ -1,106 +1,40 @@
-<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HK Driver Ultimate</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .app-view { height: calc(100vh - 200px); border: none; width: 100%; border-radius: 20px; background: white; }
-        .tab-btn.active { background-color: #3b82f6; color: white; }
-    </style>
-</head>
-<body class="bg-zinc-950 text-white overflow-hidden font-sans">
-    <div class="max-w-md mx-auto h-screen flex flex-col">
-        
-        <header class="p-4 bg-zinc-900 flex justify-between items-center border-b border-zinc-800">
-            <div id="weather-info">
-                <div class="flex items-center gap-2">
-                    <span id="weather-icon" class="text-2xl">🌡️</span>
-                    <span id="temp" class="text-2xl font-black">--°C</span>
-                </div>
-                <p id="weather-desc" class="text-[10px] text-zinc-400 font-bold tracking-wider">載入天氣中...</p>
-            </div>
-            <div class="text-right">
-                <p id="warning" class="text-xs font-bold text-yellow-500"></p>
-                <button onclick="location.reload()" class="text-[10px] text-zinc-600 underline">刷新 App</button>
-            </div>
-        </header>
+import streamlit as st
+import requests
+import pandas as pd
+from datetime import datetime
 
-        <nav class="flex p-3 gap-2 bg-zinc-900/50">
-            <button onclick="switchTab('cam')" id="btn-cam" class="tab-btn active flex-1 py-2 rounded-xl font-bold text-xs transition-all">
-                📸 交通快拍
-            </button>
-            <button onclick="switchTab('park')" id="btn-park" class="tab-btn flex-1 py-2 rounded-xl font-bold text-xs bg-zinc-800 text-zinc-400 transition-all">
-                🅿️ 停車場位
-            </button>
-        </nav>
+# 設置頁面標題與圖標
+st.set_page_config(page_title="HK Traffic Live", page_icon="🚗")
 
-        <main class="flex-grow p-2">
-            <div id="view-cam" class="h-full">
-                <iframe src="https://www.td.gov.hk/tc/transport_in_hong_kong/its/intelligent_transport_systems_strategy_review_and_/traffic_snapshot_images/index.html" class="app-view"></iframe>
-            </div>
-            <div id="view-park" class="h-full hidden">
-                <iframe src="https://www.td.gov.hk/tc/transport_in_hong_kong/parking/parking_vacancies/index.html" class="app-view"></iframe>
-            </div>
-        </main>
+def fetch_data():
+    # 使用資料一線通的 API (特別交通消息)
+    url = "https://api.data.gov.hk/v1/af-traffic-news?lang=tc"
+    try:
+        response = requests.get(url)
+        return response.json()
+    except:
+        return []
 
-    </div>
+def main():
+    st.title("🇭🇰 香港道路狀況實時監控")
+    st.markdown(f"**最後更新時間:** `{datetime.now().strftime('%H:%M:%S')}` (每 30 分鐘自動刷新)")
 
-    <script>
-        // 抓取香港天文台數據
-        async function fetchWeather() {
-            try {
-                const res = await fetch('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc');
-                const data = await res.json();
-                
-                // 取得溫度 (以天文台總部為準)
-                document.getElementById('temp').innerText = data.temperature.data[0].value + '°C';
-                
-                // 取得天氣描述
-                document.getElementById('weather-desc').innerText = data.wxdesc[0] || '即時天氣報告';
+    # 獲取數據
+    news = fetch_data()
 
-                // 抓取警告信號
-                const warnRes = await fetch('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warningInfo&lang=tc');
-                const warnData = await warnRes.json();
-                const warnEl = document.getElementById('warning');
-                if (warnData.details && warnData.details.length > 0) {
-                    warnEl.innerText = '⚠️ ' + warnData.details[0].subtype;
-                } else {
-                    warnEl.innerText = '路面情況正常';
-                }
-            } catch (e) {
-                console.error('Weather error');
-            }
-        }
+    if news:
+        for idx, item in enumerate(news):
+            # 根據關鍵字加上標籤
+            header = f"📢 消息 {idx+1}: {item['title']}"
+            with st.expander(header):
+                st.write(f"**發佈時間:** {item['startTime']}")
+                st.info(item['description'])
+    else:
+        st.success("✅ 目前沒有重大交通意外或特別封路消息。")
 
-        function switchTab(type) {
-            const camView = document.getElementById('view-cam');
-            const parkView = document.getElementById('view-park');
-            const btnCam = document.getElementById('btn-cam');
-            const btnPark = document.getElementById('btn-park');
+    # 底部加上自動刷新按鈕 (Streamlit Cloud 會自動處理，或手動按 R)
+    if st.button('立即手動更新'):
+        st.rerun()
 
-            if (type === 'cam') {
-                camView.classList.remove('hidden');
-                parkView.classList.add('hidden');
-                btnCam.classList.add('active', 'bg-blue-600', 'text-white');
-                btnCam.classList.remove('bg-zinc-800', 'text-zinc-400');
-                btnPark.classList.remove('active', 'bg-blue-600', 'text-white');
-                btnPark.classList.add('bg-zinc-800', 'text-zinc-400');
-            } else {
-                parkView.classList.remove('hidden');
-                camView.classList.add('hidden');
-                btnPark.classList.add('active', 'bg-blue-600', 'text-white');
-                btnPark.classList.remove('bg-zinc-800', 'text-zinc-400');
-                btnCam.classList.remove('active', 'bg-blue-600', 'text-white');
-                btnCam.classList.add('bg-zinc-800', 'text-zinc-400');
-            }
-        }
-
-        // 初始化
-        fetchWeather();
-        // 每 15 分鐘更新一次天氣
-        setInterval(fetchWeather, 900000);
-    </script>
-</body>
-</html>
+if __name__ == "__main__":
+    main()
